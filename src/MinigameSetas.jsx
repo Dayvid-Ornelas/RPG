@@ -1,3 +1,17 @@
+// src/MinigameSetas.jsx
+/**
+ * File: src/MinigameSetas.jsx
+ *
+ * Overview:
+ *   Keyboard sequence minigame used to dodge the boss strong attack.
+ *   Generates a random arrow sequence and checks whether the player completes it before time runs out.
+ *
+ * Exports:
+ *   - MinigameSetas — React component
+ *
+ * Imported By:
+ *   - src/App.jsx
+ */
 import { useState, useEffect, useCallback } from "react";
 
 // Dicionário para transformar os nomes das teclas em emojis/símbolos visuais

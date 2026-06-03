@@ -1,3 +1,17 @@
+// src/MinigameBarra.jsx
+/**
+ * File: src/MinigameBarra.jsx
+ *
+ * Overview:
+ *   Reusable timing minigame used by magic and defense actions.
+ *   Moves an indicator through success zones and reports PERFEITO, BOM or ERRO to the parent.
+ *
+ * Exports:
+ *   - MinigameBarra — React component
+ *
+ * Imported By:
+ *   - src/App.jsx
+ */
 import { useRef, useEffect, useState } from "react";
 
 export default function MinigameBarra({ onComplete, tipo = "vertical" }) {

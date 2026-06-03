@@ -1,3 +1,11 @@
+/* src/App.css */
+/**
+ * File: src/App.css
+ *
+ * Overview:
+ *   RPG-themed visual layer for the game: arena, fighter cards, HP bars, action buttons,
+ *   tutorial panel, combat log and victory/defeat screens.
+ */
 #root {
   min-height: 100vh;
 }
@@ -357,5 +365,68 @@
 
   .rules-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+.final-screen {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+  width: min(760px, 100%);
+  margin: 26px auto 0;
+  padding: 34px 24px;
+  text-align: center;
+  border: 1px solid rgba(245, 189, 97, 0.34);
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.12), transparent 42%),
+    rgba(14, 10, 20, 0.9);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.42);
+  animation: finalReveal 0.42s ease both;
+}
+
+.final-screen.victory {
+  border-color: rgba(255, 211, 108, 0.55);
+  box-shadow: 0 0 45px rgba(255, 184, 77, 0.22), 0 24px 70px rgba(0, 0, 0, 0.42);
+}
+
+.final-screen.defeat {
+  border-color: rgba(255, 75, 75, 0.48);
+  box-shadow: 0 0 45px rgba(255, 75, 75, 0.16), 0 24px 70px rgba(0, 0, 0, 0.42);
+}
+
+.final-emblem {
+  display: grid;
+  place-items: center;
+  width: 96px;
+  height: 96px;
+  border-radius: 999px;
+  font-size: 3.4rem;
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+}
+
+.final-screen h2 {
+  margin: 0;
+  color: #fff7e6;
+  font-size: clamp(2rem, 5vw, 3.5rem);
+  line-height: 1;
+}
+
+.final-screen p:not(.eyebrow) {
+  max-width: 560px;
+  color: #dfd0b6;
+}
+
+@keyframes finalReveal {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
   }
 }

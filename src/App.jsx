@@ -1,3 +1,21 @@
+// src/App.jsx
+/**
+ * File: src/App.jsx
+ *
+ * Overview:
+ *   Main React component for the turn-based RPG prototype.
+ *   Coordinates tutorial flow, combat state, background music, sound effects and the final result screen.
+ *
+ * Imports:
+ *   - React hooks — state, effects and audio refs
+ *   - MinigameBarra — timing minigame for magic and blocking
+ *   - MinigameSetas — keyboard sequence minigame for strong attacks
+ *   - App.css — RPG interface styling
+ *
+ * Notes:
+ *   - Background songs live in /public and are started only after user interaction.
+ *   - Short combat sound effects are generated with Web Audio so no extra files are required.
+ */
 import { useState, useEffect, useRef } from "react";
 import MinigameBarra from "./MinigameBarra";
 import MinigameSetas from "./MinigameSetas";
@@ -13,6 +31,7 @@ export default function App() {
   );
   const [jogoFinalizado, setJogoFinalizado] = useState(false);
   const audioRef = useRef(null);
+  const efeitosAudioRef = useRef(null);
   const [modoMinigame, setModoMinigame] = useState(null);
   const [danoPendente, setDanoPendente] = useState(0);
   const [cooldownMagia, setCooldownMagia] = useState(0);
@@ -40,6 +59,61 @@ export default function App() {
     });
   };
 
+  /**
+   * Returns a reusable AudioContext after the player has interacted with the page.
+   * Browsers require this interaction before any sound can play.
+   */
+  const obterContextoAudio = () => {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContext) return null;
+
+    if (!efeitosAudioRef.current) {
+      efeitosAudioRef.current = new AudioContext();
+    }
+
+    if (efeitosAudioRef.current.state === "suspended") {
+      efeitosAudioRef.current.resume().catch(() => {});
+    }
+
+    return efeitosAudioRef.current;
+  };
+
+  /**
+   * Plays compact combat feedback sounds using Web Audio oscillators.
+   * This keeps the project self-contained while giving attacks, magic and results more impact.
+   */
+  const tocarEfeito = (tipo) => {
+    const contexto = obterContextoAudio();
+    if (!contexto) return;
+
+    const agora = contexto.currentTime;
+    const ganho = contexto.createGain();
+    ganho.connect(contexto.destination);
+    ganho.gain.setValueAtTime(0.0001, agora);
+    ganho.gain.exponentialRampToValueAtTime(0.22, agora + 0.02);
+    ganho.gain.exponentialRampToValueAtTime(0.0001, agora + 0.45);
+
+    const oscilador = contexto.createOscillator();
+    oscilador.connect(ganho);
+
+    const presets = {
+      espada: { type: "sawtooth", start: 520, end: 130, duration: 0.18 },
+      magia: { type: "triangle", start: 220, end: 880, duration: 0.45 },
+      explosao: { type: "square", start: 90, end: 45, duration: 0.42 },
+      defesa: { type: "triangle", start: 360, end: 260, duration: 0.2 },
+      dano: { type: "sawtooth", start: 150, end: 70, duration: 0.3 },
+      vitoria: { type: "triangle", start: 440, end: 880, duration: 0.7 },
+      derrota: { type: "sine", start: 180, end: 55, duration: 0.8 },
+    };
+
+    const preset = presets[tipo] ?? presets.espada;
+    oscilador.type = preset.type;
+    oscilador.frequency.setValueAtTime(preset.start, agora);
+    oscilador.frequency.exponentialRampToValueAtTime(preset.end, agora + preset.duration);
+    oscilador.start(agora);
+    oscilador.stop(agora + preset.duration);
+  };
+
   useEffect(() => {
     if (jogoFinalizado) {
       // Poderia colocar uma música de Game Over/Vitória aqui se quiser
@@ -61,6 +135,7 @@ export default function App() {
   }, [tutorialAtivo, jogoFinalizado]);
 
   const iniciarTutorialEAudio = () => {
+    obterContextoAudio();
     tocarMusica("/tutorial.mp3");
     setPassoTutorial(1);
   };
@@ -117,6 +192,7 @@ export default function App() {
   };
 
   const iniciarJogoReal = () => {
+    tocarEfeito("magia");
     tocarMusica("/combate.mp3");
     setTutorialAtivo(false);
     setLogBatalha("O Chefão desperta na arena. É a sua vez.");
@@ -128,6 +204,7 @@ export default function App() {
     // O dano é sorteado apenas em resposta ao clique do jogador.
     // eslint-disable-next-line react-hooks/purity
     const danoGerado = Math.floor(Math.random() * (danoMax - danoMin + 1)) + danoMin;
+    tocarEfeito("espada");
     aplicarDanoChefe(
       danoGerado,
       `Você usou ${nomeAtaque} e causou ${danoGerado} de dano!`,
@@ -137,6 +214,7 @@ export default function App() {
   const iniciarMagia = () => {
     if (!turnoDoJogador || jogoFinalizado || cooldownMagia > 0 || tutorialAtivo)
       return;
+    tocarEfeito("magia");
     setModoMinigame("magia");
     setLogBatalha("💥 CANALIZANDO MAGIA SUPREMA! Pare a barra na área verde!");
   };
@@ -146,16 +224,19 @@ export default function App() {
     setCooldownMagia(2);
 
     if (resultado === "PERFEITO") {
+      tocarEfeito("explosao");
       aplicarDanoChefe(
         75,
         "💥 !!!MAGIA PERFEITA!!! Você obliterou o Chefão com 75 de dano!",
       );
     } else if (resultado === "BOM") {
+      tocarEfeito("magia");
       aplicarDanoChefe(
         35,
         "⚡ Magia canalizada com sucesso! O impacto causou 35 de dano.",
       );
     } else {
+      tocarEfeito("dano");
       const danoAutoAfligido = 25;
       const novoHpHeroi = Math.max(0, hpHeroi - danoAutoAfligido);
       setHpHeroi(novoHpHeroi);
@@ -180,6 +261,7 @@ export default function App() {
     setLogBatalha(mensagem);
 
     if (novoHpChefe === 0) {
+      tocarEfeito("vitoria");
       setLogBatalha(`🎉 Vitória! Você derrotou o Chefão!`);
       setJogoFinalizado(true);
       return;
@@ -234,6 +316,7 @@ export default function App() {
       texto: "Falhou! Você recebeu o dano total do ataque!",
     };
 
+    tocarEfeito(resultadoDefesa.multiplicador === 0 ? "defesa" : "dano");
     aplicarDanoHeroi(
       Math.floor(danoPendente * resultadoDefesa.multiplicador),
       resultadoDefesa.texto,
@@ -254,6 +337,7 @@ export default function App() {
             texto: "Não foi rápido o suficiente! Tomou o dano em cheio!",
           };
 
+    tocarEfeito(resultadoEsquiva.danoFinal === 0 ? "defesa" : "dano");
     aplicarDanoHeroi(resultadoEsquiva.danoFinal, resultadoEsquiva.texto);
   };
 
@@ -263,6 +347,7 @@ export default function App() {
     setLogBatalha(`${textoResultado} (-${danoFinal} HP)`);
 
     if (novoHpHeroi === 0) {
+      tocarEfeito("derrota");
       setLogBatalha(`💀 Game Over! Você foi derrotado...`);
       setJogoFinalizado(true);
     } else {
@@ -280,10 +365,17 @@ export default function App() {
     setCooldownMagia(0);
     setTutorialAtivo(true); // Permite jogar o tutorial de novo se quiser
     setPassoTutorial(0);
+    setFeedbackTutorial("");
+    tocarMusica("/tutorial.mp3");
   };
 
   const hpHeroiPercentual = Math.max(0, (hpHeroi / maxHpHeroi) * 100);
   const hpChefePercentual = Math.max(0, (hpChefe / maxHpChefe) * 100);
+  const jogadorVenceu = jogoFinalizado && hpChefe === 0;
+  const tituloFinal = jogadorVenceu ? "Vitória lendária" : "Derrota na arena";
+  const textoFinal = jogadorVenceu
+    ? "O Chefão caiu. A guilda canta seu nome e a aventura entra para as crônicas."
+    : "O Chefão resistiu ao combate. Reúna forças, treine os reflexos e tente novamente.";
 
   return (
     <main className={`rpg-shell ${tutorialAtivo ? "is-training" : "is-battle"}`}>
@@ -483,9 +575,17 @@ export default function App() {
       )}
 
       {jogoFinalizado && (
-        <button className="rpg-button primary restart-button" onClick={reiniciarBatalha}>
-          Reiniciar aventura
-        </button>
+        <section className={`final-screen ${jogadorVenceu ? "victory" : "defeat"}`}>
+          <div className="final-emblem" aria-hidden="true">
+            {jogadorVenceu ? "🏆" : "☠️"}
+          </div>
+          <p className="eyebrow">Fim da batalha</p>
+          <h2>{tituloFinal}</h2>
+          <p>{textoFinal}</p>
+          <button className="rpg-button primary restart-button" onClick={reiniciarBatalha}>
+            Reiniciar aventura
+          </button>
+        </section>
       )}
     </main>
   );
