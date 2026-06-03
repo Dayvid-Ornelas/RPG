@@ -17,39 +17,39 @@ export default function MinigameBarra({ onComplete, tipo = "vertical" }) {
   const zonaPerfeita = { min: 75, max: 90 };
   const zonaBoa = { min: 65, max: 100 };
 
-  const animar = () => {
-    if (!ativo) return;
-
-    // Atualiza a matemática da posição
-    progresso.current += direcao.current * velocidade;
-
-    // Bateu no topo ou no fundo, inverte a direção
-    if (progresso.current >= 100) {
-      progresso.current = 100;
-      direcao.current = -1;
-    } else if (progresso.current <= 0) {
-      progresso.current = 0;
-      direcao.current = 1;
-    }
-
-    // Atualiza o visual diretamente no DOM (muito mais rápido que o useState)
-    if (indicadorRef.current) {
-      if (tipo === "vertical") {
-        indicadorRef.current.style.bottom = `${progresso.current}%`;
-      } else {
-        indicadorRef.current.style.left = `${progresso.current}%`;
-      }
-    }
-
-    // Pede ao navegador para rodar essa função de novo no próximo quadro
-    animacaoRef.current = requestAnimationFrame(animar);
-  };
-
   // Inicia a animação assim que o componente aparece na tela
   useEffect(() => {
+    const animar = () => {
+      if (!ativo) return;
+
+      // Atualiza a matemática da posição
+      progresso.current += direcao.current * velocidade;
+
+      // Bateu no topo ou no fundo, inverte a direção
+      if (progresso.current >= 100) {
+        progresso.current = 100;
+        direcao.current = -1;
+      } else if (progresso.current <= 0) {
+        progresso.current = 0;
+        direcao.current = 1;
+      }
+
+      // Atualiza o visual diretamente no DOM (muito mais rápido que o useState)
+      if (indicadorRef.current) {
+        if (tipo === "vertical") {
+          indicadorRef.current.style.bottom = `${progresso.current}%`;
+        } else {
+          indicadorRef.current.style.left = `${progresso.current}%`;
+        }
+      }
+
+      // Pede ao navegador para rodar essa função de novo no próximo quadro
+      animacaoRef.current = requestAnimationFrame(animar);
+    };
+
     animacaoRef.current = requestAnimationFrame(animar);
     return () => cancelAnimationFrame(animacaoRef.current); // Limpa ao fechar
-  }, [ativo]);
+  }, [ativo, tipo]);
 
   // Função disparada quando o jogador aperta o botão
   const pararBarra = () => {

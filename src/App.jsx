@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import MinigameBarra from "./MinigameBarra";
 import MinigameSetas from "./MinigameSetas";
+import "./App.css";
 
 export default function App() {
   // --- ESTADOS DO JOGO ---
@@ -45,10 +46,10 @@ export default function App() {
       if (audioRef.current) audioRef.current.pause();
     } else if (tutorialAtivo) {
       // Toca a música do tutorial
-      tocarMusica("/sons/tutorial.mp3");
+      tocarMusica("/tutorial.mp3");
     } else {
       // Toca a música da batalha real
-      tocarMusica("/sons/combate.mp3");
+      tocarMusica("/combate.mp3");
     }
 
     // Limpeza: Se o componente fechar, desliga a música da memória
@@ -60,9 +61,8 @@ export default function App() {
   }, [tutorialAtivo, jogoFinalizado]);
 
   const iniciarTutorialEAudio = () => {
+    tocarMusica("/tutorial.mp3");
     setPassoTutorial(1);
-    // Força o play na música atual (tutorial) após o clique obrigatório do usuário
-    if (audioRef.current) audioRef.current.play().catch(() => {});
   };
   const resolverMagiaTutorial = (resultado) => {
     setSimulandoMinigame(false);
@@ -117,15 +117,17 @@ export default function App() {
   };
 
   const iniciarJogoReal = () => {
+    tocarMusica("/combate.mp3");
     setTutorialAtivo(false);
-    setLogBatalha("O Chefe desafia você! É a sua vez.");
+    setLogBatalha("O Chefão desperta na arena. É a sua vez.");
   };
 
   // --- ATAQUES DO JOGADOR (JOGO REAL) ---
   const realizarAtaque = (nomeAtaque, danoMin, danoMax) => {
     if (!turnoDoJogador || jogoFinalizado || tutorialAtivo) return;
-    const danoGerado =
-      Math.floor(Math.random() * (danoMax - danoMin + 1)) + danoMin;
+    // O dano é sorteado apenas em resposta ao clique do jogador.
+    // eslint-disable-next-line react-hooks/purity
+    const danoGerado = Math.floor(Math.random() * (danoMax - danoMin + 1)) + danoMin;
     aplicarDanoChefe(
       danoGerado,
       `Você usou ${nomeAtaque} e causou ${danoGerado} de dano!`,
@@ -213,37 +215,46 @@ export default function App() {
 
   const resolverDefesa = (resultado) => {
     setModoMinigame(null);
-    let multiplicador = 1;
-    let textoResultado = "";
 
-    if (resultado === "PERFEITO") {
-      multiplicador = 0;
-      textoResultado = "PERFEITO! Você esquivou completamente do ataque!";
-    } else if (resultado === "BOM") {
-      multiplicador = 0.5;
-      textoResultado = "Boa defesa! Você reduziu o dano pela metade.";
-    } else {
-      multiplicador = 1;
-      textoResultado = "Falhou! Você recebeu o dano total do ataque!";
-    }
+    const resultadoDefesa = {
+      PERFEITO: {
+        multiplicador: 0,
+        texto: "PERFEITO! Você esquivou completamente do ataque!",
+      },
+      BOM: {
+        multiplicador: 0.5,
+        texto: "Boa defesa! Você reduziu o dano pela metade.",
+      },
+      ERRO: {
+        multiplicador: 1,
+        texto: "Falhou! Você recebeu o dano total do ataque!",
+      },
+    }[resultado] ?? {
+      multiplicador: 1,
+      texto: "Falhou! Você recebeu o dano total do ataque!",
+    };
 
-    aplicarDanoHeroi(Math.floor(danoPendente * multiplicador), textoResultado);
+    aplicarDanoHeroi(
+      Math.floor(danoPendente * resultadoDefesa.multiplicador),
+      resultadoDefesa.texto,
+    );
   };
 
   const resolverSetas = (resultado) => {
     setModoMinigame(null);
-    let danoFinal = 0;
-    let textoResultado = "";
 
-    if (resultado === "PERFEITO") {
-      danoFinal = 0;
-      textoResultado = "ESQUIVA ÉPICA! Você desviou da fúria do Chefão!";
-    } else {
-      danoFinal = danoPendente;
-      textoResultado = "Não foi rápido o suficiente! Tomou o dano em cheio!";
-    }
+    const resultadoEsquiva =
+      resultado === "PERFEITO"
+        ? {
+            danoFinal: 0,
+            texto: "ESQUIVA ÉPICA! Você desviou da fúria do Chefão!",
+          }
+        : {
+            danoFinal: danoPendente,
+            texto: "Não foi rápido o suficiente! Tomou o dano em cheio!",
+          };
 
-    aplicarDanoHeroi(danoFinal, textoResultado);
+    aplicarDanoHeroi(resultadoEsquiva.danoFinal, resultadoEsquiva.texto);
   };
 
   const aplicarDanoHeroi = (danoFinal, textoResultado) => {
@@ -271,310 +282,211 @@ export default function App() {
     setPassoTutorial(0);
   };
 
+  const hpHeroiPercentual = Math.max(0, (hpHeroi / maxHpHeroi) * 100);
+  const hpChefePercentual = Math.max(0, (hpChefe / maxHpChefe) * 100);
+
   return (
-    <div
-      style={{ padding: "20px", fontFamily: "sans-serif", textAlign: "center" }}
-    >
-      <h1>RPG de Turno - Protótipo com Tutorial</h1>
+    <main className={`rpg-shell ${tutorialAtivo ? "is-training" : "is-battle"}`}>
+      <section className="hero-banner">
+        <p className="eyebrow">RPG de turno</p>
+        <h1>Crônicas do Chefão</h1>
+        <p className="subtitle">
+          Treine seus comandos, domine os minigames e sobreviva ao combate final.
+        </p>
+      </section>
 
-      {/* Arena borrada/desativada visualmente se for o tutorial */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-around",
-          margin: "30px 0",
-          opacity: tutorialAtivo ? 0.4 : 1,
-        }}
-      >
-        <div>
-          <h3>Herói (Você)</h3>
-          <p>
-            HP: {hpHeroi} / {maxHpHeroi}
-          </p>
-        </div>
-        <div>
-          <h3>Chefão (Inimigo)</h3>
-          <p>
-            HP: {hpChefe} / {maxHpChefe}
-          </p>
-        </div>
-      </div>
+      <section className={`battle-arena ${tutorialAtivo ? "muted" : ""}`}>
+        <article className="fighter-card hero-card">
+          <div className="fighter-sprite hero-sprite" aria-hidden="true">🛡️</div>
+          <div className="fighter-info">
+            <span className="fighter-label">Herói</span>
+            <h2>Você</h2>
+            <div className="hp-row">
+              <span>HP</span>
+              <strong>{hpHeroi} / {maxHpHeroi}</strong>
+            </div>
+            <div className="hp-bar">
+              <div className="hp-fill hero-hp" style={{ width: `${hpHeroiPercentual}%` }} />
+            </div>
+          </div>
+        </article>
 
-      {/* Caixa de Mensagem Principal do Combate Real */}
+        <div className="versus-mark">VS</div>
+
+        <article className="fighter-card boss-card">
+          <div className="fighter-sprite boss-sprite" aria-hidden="true">🐉</div>
+          <div className="fighter-info">
+            <span className="fighter-label">Inimigo</span>
+            <h2>Chefão</h2>
+            <div className="hp-row">
+              <span>HP</span>
+              <strong>{hpChefe} / {maxHpChefe}</strong>
+            </div>
+            <div className="hp-bar">
+              <div className="hp-fill boss-hp" style={{ width: `${hpChefePercentual}%` }} />
+            </div>
+          </div>
+        </article>
+      </section>
+
       {!tutorialAtivo && (
-        <div
-          style={{
-            background: "#eee",
-            padding: "15px",
-            borderRadius: "5px",
-            marginBottom: "20px",
-          }}
-        >
+        <section className="combat-log" aria-live="polite">
+          <span className="log-label">Narração</span>
           <strong>{logBatalha}</strong>
-        </div>
+        </section>
       )}
 
-      {/* ================= SEÇÃO DO TUTORIAL ================= */}
       {tutorialAtivo && (
-        <div
-          style={{
-            background: "#fffdeb",
-            border: "2px solid #e6b000",
-            padding: "20px",
-            borderRadius: "10px",
-            maxWidth: "500px",
-            margin: "0 auto 20px auto",
-          }}
-        >
-          <h2 style={{ color: "#b38600", marginTop: 0 }}>
-            🧠 Modo de Treinamento
-          </h2>
+        <section className="tutorial-panel">
+          <span className="panel-glow" aria-hidden="true" />
+          <p className="eyebrow">Modo de treinamento</p>
+          <h2>Antes da arena, aprenda os comandos</h2>
 
           {passoTutorial === 0 && (
-            <div>
+            <div className="tutorial-step">
               <p>
-                Bem-vindo ao jogo! Antes de enfrentar o terrível Chefão, vamos
-                passar por uma rápida simulação para você aprender os comandos
-                básicos.
+                Bem-vindo ao jogo. Antes de enfrentar o Chefão, você passará por uma simulação rápida para aprender ataques, magia, defesa e esquiva.
               </p>
-              <button
-                onClick={avancarTutorial}
-                style={{ padding: "10px 20px", cursor: "pointer" }}
-              >
-                Entendi, vamos lá!
+              <button className="rpg-button primary" onClick={iniciarTutorialEAudio}>
+                ▶ Iniciar tutorial
               </button>
             </div>
           )}
 
           {passoTutorial === 1 && (
-            <div>
+            <div className="tutorial-step">
               <h3>1. Ataque Rápido</h3>
               <p>
-                É a sua ação padrão e segura. Ela causa dano de forma
-                **instantânea** no inimigo, sem a necessidade de passar por
-                minigames.
+                Sua ação padrão e segura. Causa dano instantâneo no inimigo sem minigame.
               </p>
-              <button
-                onClick={avancarTutorial}
-                style={{ padding: "10px 20px", cursor: "pointer" }}
-              >
-                Entendi, próximo comando
+              <button className="rpg-button" onClick={avancarTutorial}>
+                Próximo comando
               </button>
             </div>
           )}
 
           {passoTutorial === 2 && (
-            <div>
-              <h3>2. Magia Suprema (Vertical)</h3>
+            <div className="tutorial-step">
+              <h3>2. Magia Suprema</h3>
               <p>
-                Uma habilidade devastadora de alto risco. Uma barra começará a
-                subir e descer rapidamente (Velocidade: 3.5!).
+                Habilidade devastadora de alto risco. Pare a barra na zona certa para liberar o dano.
               </p>
-              <ul>
-                <li>
-                  <strong>Verde Escuro (Perfeito):</strong> 75 de Dano.
-                </li>
-                <li>
-                  <strong>Amarelo (Bom):</strong> 35 de Dano.
-                </li>
-                <li>
-                  <strong>Cinza (Erro):</strong> Você toma 25 de dano de
-                  ricochete.
-                </li>
-              </ul>
-              <p>
-                Ela possui um <strong>cooldown de 2 turnos</strong> após ser
-                usada.
-              </p>
+              <div className="rules-grid">
+                <span><strong>Verde:</strong> 75 de dano</span>
+                <span><strong>Amarelo:</strong> 35 de dano</span>
+                <span><strong>Erro:</strong> 25 de ricochete</span>
+              </div>
 
               {!simulandoMinigame && !feedbackTutorial && (
-                <button
-                  onClick={() => setSimulandoMinigame(true)}
-                  style={{
-                    padding: "10px 20px",
-                    background: "purple",
-                    color: "white",
-                    cursor: "pointer",
-                  }}
-                >
-                  Testar Magia
+                <button className="rpg-button magic" onClick={() => setSimulandoMinigame(true)}>
+                  ✦ Testar magia
                 </button>
               )}
 
-              {simulandoMinigame && (
-                <MinigameBarra
-                  tipo="vertical"
-                  onComplete={resolverMagiaTutorial}
-                />
-              )}
+              {simulandoMinigame && <MinigameBarra tipo="vertical" onComplete={resolverMagiaTutorial} />}
 
               {feedbackTutorial && (
-                <div>
-                  <p style={{ fontWeight: "bold" }}>{feedbackTutorial}</p>
-                  <button
-                    onClick={avancarTutorial}
-                    style={{ padding: "10px 20px", cursor: "pointer" }}
-                  >
-                    Avançar para Defesa
-                  </button>
+                <div className="feedback-box">
+                  <p>{feedbackTutorial}</p>
+                  <button className="rpg-button" onClick={avancarTutorial}>Avançar para defesa</button>
                 </div>
               )}
             </div>
           )}
 
           {passoTutorial === 3 && (
-            <div>
-              <h3>3. Defesa de Ataques Normais (Horizontal)</h3>
+            <div className="tutorial-step">
+              <h3>3. Defesa</h3>
               <p>
-                Quando for o turno do Chefe e ele usar um golpe básico, uma
-                barra horizontal surgirá na tela.
-              </p>
-              <p>
-                Pare a barra no centro verde para **esquivar** (0 de dano) ou
-                nas bordas amarelas para **reduzir o dano pela metade**.
+                Quando o chefe atacar, pare a barra horizontal no centro verde para esquivar ou no amarelo para reduzir o dano.
               </p>
 
               {!simulandoMinigame && !feedbackTutorial && (
-                <button
-                  onClick={() => setSimulandoMinigame(true)}
-                  style={{
-                    padding: "10px 20px",
-                    background: "blue",
-                    color: "white",
-                    cursor: "pointer",
-                  }}
-                >
-                  Testar Defesa
+                <button className="rpg-button guard" onClick={() => setSimulandoMinigame(true)}>
+                  ◆ Testar defesa
                 </button>
               )}
 
-              {simulandoMinigame && (
-                <MinigameBarra
-                  tipo="horizontal"
-                  onComplete={resolverDefesaTutorial}
-                />
-              )}
+              {simulandoMinigame && <MinigameBarra tipo="horizontal" onComplete={resolverDefesaTutorial} />}
 
               {feedbackTutorial && (
-                <div>
-                  <p style={{ fontWeight: "bold" }}>{feedbackTutorial}</p>
-                  <button
-                    onClick={avancarTutorial}
-                    style={{ padding: "10px 20px", cursor: "pointer" }}
-                  >
-                    Avançar para Esquiva Forte
-                  </button>
+                <div className="feedback-box">
+                  <p>{feedbackTutorial}</p>
+                  <button className="rpg-button" onClick={avancarTutorial}>Avançar para esquiva</button>
                 </div>
               )}
             </div>
           )}
 
           {passoTutorial === 4 && (
-            <div>
-              <h3>4. Esquiva de Ataques Fortes (Setas do Teclado)</h3>
+            <div className="tutorial-step">
+              <h3>4. Esquiva forte</h3>
               <p>
-                Se o Chefe carregar um ataque destruidor, surgirá uma lista de
-                **10 setas aleatórias** na tela.
-              </p>
-              <p>
-                Você tem apenas 5 segundos para digitar a sequência correta no
-                teclado. Se falhar, receberá o dano massivo completo.
+                Digite a sequência de setas em até 5 segundos para escapar dos ataques mais perigosos.
               </p>
 
               {!simulandoMinigame && !feedbackTutorial && (
-                <button
-                  onClick={() => setSimulandoMinigame(true)}
-                  style={{
-                    padding: "10px 20px",
-                    background: "orange",
-                    cursor: "pointer",
-                  }}
-                >
-                  Testar Sequência de Setas
+                <button className="rpg-button warning" onClick={() => setSimulandoMinigame(true)}>
+                  ⚡ Testar sequência
                 </button>
               )}
 
-              {simulandoMinigame && (
-                <MinigameSetas onComplete={resolverSetasTutorial} />
-              )}
+              {simulandoMinigame && <MinigameSetas onComplete={resolverSetasTutorial} />}
 
               {feedbackTutorial && (
-                <div>
-                  <p style={{ fontWeight: "bold" }}>{feedbackTutorial}</p>
-                  <button
-                    onClick={iniciarJogoReal}
-                    style={{
-                      padding: "15px 30px",
-                      background: "red",
-                      color: "white",
-                      fontSize: "16px",
-                      fontWeight: "bold",
-                      cursor: "pointer",
-                    }}
-                  >
-                    🔥 ENTRAR NO COMBATE REAL!
+                <div className="feedback-box">
+                  <p>{feedbackTutorial}</p>
+                  <button className="rpg-button danger" onClick={iniciarJogoReal}>
+                    🔥 Entrar no combate real
                   </button>
                 </div>
               )}
             </div>
           )}
-        </div>
+        </section>
       )}
-      {/* ================= FIM SEÇÃO DO TUTORIAL ================= */}
 
-      {/* JOGO REAL: RENDERIZAÇÃO DOS MINIGAMES DE COMBATE */}
       {!tutorialAtivo && modoMinigame === "magia" && (
-        <MinigameBarra tipo="vertical" onComplete={resolverMagia} />
+        <section className="minigame-stage">
+          <MinigameBarra tipo="vertical" onComplete={resolverMagia} />
+        </section>
       )}
       {!tutorialAtivo && modoMinigame === "defesa" && (
-        <MinigameBarra tipo="horizontal" onComplete={resolverDefesa} />
+        <section className="minigame-stage">
+          <MinigameBarra tipo="horizontal" onComplete={resolverDefesa} />
+        </section>
       )}
       {!tutorialAtivo && modoMinigame === "setas" && (
-        <MinigameSetas onComplete={resolverSetas} />
+        <section className="minigame-stage">
+          <MinigameSetas onComplete={resolverSetas} />
+        </section>
       )}
 
-      {/* JOGO REAL: RENDERIZAÇÃO DO PAINEL DE AÇÕES */}
       {!tutorialAtivo && !modoMinigame && !jogoFinalizado && (
-        <div>
+        <section className="action-panel">
           <button
+            className="rpg-button primary"
             onClick={() => realizarAtaque("Ataque Rápido", 10, 15)}
             disabled={!turnoDoJogador}
-            style={{ margin: "5px", padding: "10px 20px", cursor: "pointer" }}
           >
-            Ataque Rápido
+            ⚔️ Ataque rápido
           </button>
 
           <button
+            className="rpg-button magic"
             onClick={iniciarMagia}
             disabled={!turnoDoJogador || cooldownMagia > 0}
-            style={{
-              margin: "5px",
-              padding: "10px 20px",
-              cursor:
-                !turnoDoJogador || cooldownMagia > 0
-                  ? "not-allowed"
-                  : "pointer",
-              background: cooldownMagia > 0 ? "#777" : "purple",
-              color: "white",
-              fontWeight: "bold",
-              border: "none",
-            }}
           >
-            {cooldownMagia > 0
-              ? `Magia (Recarregando: ${cooldownMagia})`
-              : "Usar Magia Suprema"}
+            {cooldownMagia > 0 ? `Magia recarregando: ${cooldownMagia}` : "✦ Magia suprema"}
           </button>
-        </div>
+        </section>
       )}
 
       {jogoFinalizado && (
-        <button
-          onClick={reiniciarBatalha}
-          style={{ padding: "10px 20px", fontSize: "16px", cursor: "pointer" }}
-        >
-          Reiniciar Tudo (Voltar ao Treino)
+        <button className="rpg-button primary restart-button" onClick={reiniciarBatalha}>
+          Reiniciar aventura
         </button>
       )}
-    </div>
+    </main>
   );
 }

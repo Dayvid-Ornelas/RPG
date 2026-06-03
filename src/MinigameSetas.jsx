@@ -9,23 +9,20 @@ const MAPA_SETAS = {
 };
 const TECLAS_POSSIVEIS = Object.keys(MAPA_SETAS);
 
+const gerarSequenciaSetas = () =>
+  Array.from({ length: 10 }, () => {
+    const indexAleatorio = Math.floor(Math.random() * TECLAS_POSSIVEIS.length);
+    return TECLAS_POSSIVEIS[indexAleatorio];
+  });
+
 export default function MinigameSetas({ onComplete }) {
-  const [setas, setSetas] = useState([]);
+  const [setas] = useState(gerarSequenciaSetas);
   const [indiceAtual, setIndiceAtual] = useState(0);
   const [tempoRestante, setTempoRestante] = useState(5000); // 5 segundos para completar
   const [ativo, setAtivo] = useState(true);
   const [mensagem, setMensagem] = useState("Rápido! Digite a sequência!");
 
-  // 1. Gera a sequência de 10 setas aleatórias ao abrir o componente
-  useEffect(() => {
-    const sequencia = Array.from({ length: 10 }, () => {
-      const indexAleatorio = Math.floor(Math.random() * TECLAS_POSSIVEIS.length);
-      return TECLAS_POSSIVEIS[indexAleatorio];
-    });
-    setSetas(sequencia);
-  }, []);
-
-  // 2. Função para finalizar o minigame
+  // 1. Função para finalizar o minigame
   const finalizar = useCallback((resultado) => {
     setAtivo(false);
     if (resultado === "PERFEITO") {
