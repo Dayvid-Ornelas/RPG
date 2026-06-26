@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "backend": "node backend/server.js",
+    "dev:full": "node backend/server.js & vite",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview"

@@ -16,7 +16,7 @@
  *   - Background songs live in /public and are started only after user interaction.
  *   - Short combat sound effects are generated with Web Audio so no extra files are required.
  */
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import MinigameBarra from "./MinigameBarra";
 import MinigameSetas from "./MinigameSetas";
 import "./App.css";
@@ -44,6 +44,21 @@ export default function App() {
 
   const maxHpHeroi = 100;
   const maxHpChefe = 150;
+  const apiUrl = import.meta.env.VITE_API_URL ?? "http://localhost:3001/api";
+
+  // --- ESTADOS DO BACKEND / CRUD DE PERSONAGENS ---
+  const [personagens, setPersonagens] = useState([]);
+  const [equipamentos, setEquipamentos] = useState([]);
+  const [personagemEditandoId, setPersonagemEditandoId] = useState(null);
+  const [statusBackend, setStatusBackend] = useState("Conectando ao backend...");
+  const [formPersonagem, setFormPersonagem] = useState({
+    nome: "",
+    classe: "Guerreiro",
+    nivel: 1,
+    vida: 100,
+    armaId: "",
+    armaduraId: "",
+  });
 
   // --- LOGICA DE RESOLUÇÃO DO TUTORIAL (AMBIENTE SEGURO) ---
 
@@ -112,6 +127,113 @@ export default function App() {
     oscilador.frequency.exponentialRampToValueAtTime(preset.end, agora + preset.duration);
     oscilador.start(agora);
     oscilador.stop(agora + preset.duration);
+  };
+
+  const carregarDadosBackend = useCallback(async () => {
+    try {
+      const [personagensResposta, equipamentosResposta] = await Promise.all([
+        fetch(`${apiUrl}/personagens`),
+        fetch(`${apiUrl}/equipamentos`),
+      ]);
+
+      if (!personagensResposta.ok || !equipamentosResposta.ok) {
+        throw new Error("Falha ao carregar dados do backend.");
+      }
+
+      setPersonagens(await personagensResposta.json());
+      setEquipamentos(await equipamentosResposta.json());
+      setStatusBackend("Backend conectado. Dados salvos em SQLite.");
+    } catch (error) {
+      setStatusBackend(
+        "Backend offline. Rode npm run backend em outro terminal para usar o CRUD.",
+      );
+      console.error(error);
+    }
+  }, [apiUrl]);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    carregarDadosBackend();
+  }, [carregarDadosBackend]);
+
+  const atualizarCampoPersonagem = (campo, valor) => {
+    setFormPersonagem((dadosAtuais) => ({ ...dadosAtuais, [campo]: valor }));
+  };
+
+  const limparFormularioPersonagem = () => {
+    setPersonagemEditandoId(null);
+    setFormPersonagem({
+      nome: "",
+      classe: "Guerreiro",
+      nivel: 1,
+      vida: 100,
+      armaId: "",
+      armaduraId: "",
+    });
+  };
+
+  const salvarPersonagem = async (event) => {
+    event.preventDefault();
+
+    const payload = {
+      ...formPersonagem,
+      nivel: Number(formPersonagem.nivel),
+      vida: Number(formPersonagem.vida),
+      armaId: formPersonagem.armaId ? Number(formPersonagem.armaId) : null,
+      armaduraId: formPersonagem.armaduraId ? Number(formPersonagem.armaduraId) : null,
+    };
+
+    try {
+      const resposta = await fetch(
+        personagemEditandoId
+          ? `${apiUrl}/personagens/${personagemEditandoId}`
+          : `${apiUrl}/personagens`,
+        {
+          method: personagemEditandoId ? "PUT" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        },
+      );
+
+      const dados = await resposta.json();
+      if (!resposta.ok) throw new Error(dados.erro ?? "Erro ao salvar personagem.");
+
+      setStatusBackend(
+        personagemEditandoId
+          ? "Personagem atualizado no banco de dados."
+          : "Personagem cadastrado no banco de dados.",
+      );
+      limparFormularioPersonagem();
+      carregarDadosBackend();
+    } catch (error) {
+      setStatusBackend(error.message);
+    }
+  };
+
+  const editarPersonagem = (personagem) => {
+    setPersonagemEditandoId(personagem.id);
+    setFormPersonagem({
+      nome: personagem.nome,
+      classe: personagem.classe,
+      nivel: personagem.nivel,
+      vida: personagem.vida,
+      armaId: personagem.arma?.id ? String(personagem.arma.id) : "",
+      armaduraId: personagem.armadura?.id ? String(personagem.armadura.id) : "",
+    });
+  };
+
+  const excluirPersonagem = async (id) => {
+    try {
+      const resposta = await fetch(`${apiUrl}/personagens/${id}`, { method: "DELETE" });
+      const dados = await resposta.json();
+      if (!resposta.ok) throw new Error(dados.erro ?? "Erro ao excluir personagem.");
+
+      setStatusBackend("Personagem excluído do banco de dados.");
+      limparFormularioPersonagem();
+      carregarDadosBackend();
+    } catch (error) {
+      setStatusBackend(error.message);
+    }
   };
 
   useEffect(() => {
@@ -427,6 +549,137 @@ export default function App() {
           <strong>{logBatalha}</strong>
         </section>
       )}
+
+      <section className="backend-panel">
+        <div className="backend-header">
+          <div>
+            <p className="eyebrow">Backend + banco de dados</p>
+            <h2>Forja de personagens</h2>
+          </div>
+          <span className="backend-status">{statusBackend}</span>
+        </div>
+
+        <form className="character-form" onSubmit={salvarPersonagem}>
+          <label>
+            Nome
+            <input
+              value={formPersonagem.nome}
+              onChange={(event) => atualizarCampoPersonagem("nome", event.target.value)}
+              placeholder="Ex.: Arion, o Bravo"
+              required
+            />
+          </label>
+
+          <label>
+            Classe
+            <select
+              value={formPersonagem.classe}
+              onChange={(event) => atualizarCampoPersonagem("classe", event.target.value)}
+            >
+              <option>Guerreiro</option>
+              <option>Mago</option>
+              <option>Arqueiro</option>
+              <option>Paladino</option>
+              <option>Ladino</option>
+            </select>
+          </label>
+
+          <label>
+            Nível
+            <input
+              type="number"
+              min="1"
+              max="99"
+              value={formPersonagem.nivel}
+              onChange={(event) => atualizarCampoPersonagem("nivel", event.target.value)}
+            />
+          </label>
+
+          <label>
+            Vida
+            <input
+              type="number"
+              min="1"
+              max="999"
+              value={formPersonagem.vida}
+              onChange={(event) => atualizarCampoPersonagem("vida", event.target.value)}
+            />
+          </label>
+
+          <label>
+            Arma
+            <select
+              value={formPersonagem.armaId}
+              onChange={(event) => atualizarCampoPersonagem("armaId", event.target.value)}
+            >
+              <option value="">Sem arma</option>
+              {equipamentos
+                .filter((equipamento) => equipamento.tipo === "arma")
+                .map((equipamento) => (
+                  <option key={equipamento.id} value={equipamento.id}>
+                    {equipamento.nome} (+{equipamento.bonusAtaque} ATQ)
+                  </option>
+                ))}
+            </select>
+          </label>
+
+          <label>
+            Armadura
+            <select
+              value={formPersonagem.armaduraId}
+              onChange={(event) => atualizarCampoPersonagem("armaduraId", event.target.value)}
+            >
+              <option value="">Sem armadura</option>
+              {equipamentos
+                .filter((equipamento) => equipamento.tipo === "armadura")
+                .map((equipamento) => (
+                  <option key={equipamento.id} value={equipamento.id}>
+                    {equipamento.nome} (+{equipamento.bonusDefesa} DEF)
+                  </option>
+                ))}
+            </select>
+          </label>
+
+          <div className="form-actions">
+            <button className="rpg-button primary" type="submit">
+              {personagemEditandoId ? "Salvar edição" : "Cadastrar personagem"}
+            </button>
+            {personagemEditandoId && (
+              <button className="rpg-button" type="button" onClick={limparFormularioPersonagem}>
+                Cancelar edição
+              </button>
+            )}
+          </div>
+        </form>
+
+        <div className="characters-list">
+          {personagens.length === 0 ? (
+            <p className="empty-list">Nenhum personagem cadastrado ainda.</p>
+          ) : (
+            personagens.map((personagem) => (
+              <article className="saved-character" key={personagem.id}>
+                <div>
+                  <strong>{personagem.nome}</strong>
+                  <span>
+                    {personagem.classe} • nível {personagem.nivel} • {personagem.vida} HP
+                  </span>
+                  <small>
+                    {personagem.arma?.nome ?? "Sem arma"} / {personagem.armadura?.nome ?? "Sem armadura"}
+                  </small>
+                </div>
+                <div className="character-actions">
+                  <button className="rpg-button small" onClick={() => editarPersonagem(personagem)}>
+                    Editar
+                  </button>
+                  <button className="rpg-button small danger" onClick={() => excluirPersonagem(personagem.id)}>
+                    Excluir
+                  </button>
+                </div>
+              </article>
+            ))
+          )}
+        </div>
+      </section>
 
       {tutorialAtivo && (
         <section className="tutorial-panel">
